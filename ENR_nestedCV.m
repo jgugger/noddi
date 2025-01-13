@@ -5,11 +5,11 @@ clear
 load data.mat
 
 %% Classification with elastic net regression and nested cross-validation
+rng(1); % For reproducibility
+
 X = data_table{:,["mTL_ipsi_PC1","mTL_contra_PC1"]}; % predictors
 yBinom = (data_table.seizurefree_12m == "SF"); % outcome (SF vs NSF at 12 months)
 
-% Generate example dataset (binary classification)
-rng(1); % For reproducibility
 nSamples = 30;
 nFeatures = 2;
 
