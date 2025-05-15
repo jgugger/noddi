@@ -2,16 +2,21 @@ clc
 clear
 
 %% Load data
-load data.mat
+load surgery_data.mat
 
-%% Classification with elastic net regression and nested cross-validation
+%% Create clinical features for alternative model
+lesional = surgery_metadata.MRI_lesionType == "MTS";
+Concord = surgery_metadata.concordance_Lateralization == "Yes" & surgery_metadata.concordance_Localization == "Yes";
+duration = surgery_metadata.durationepi;
+
+%% Perform classification with elastic net regression and nested cross-validation
+X = [surgery_metadata.M_ipsi,surgery_metadata.M_contra]; % only M distances
+% X = [lesional,Concord,duration]; % only clinical features
+yBinom = (surgery_metadata.seizurefree_12m == "SF");
+
 rng(1); % For reproducibility
-
-X = data_table{:,["mTL_ipsi_PC1","mTL_contra_PC1"]}; % predictors
-yBinom = (data_table.seizurefree_12m == "SF"); % outcome (SF vs NSF at 12 months)
-
 nSamples = 30;
-nFeatures = 2;
+nFeatures = 2; % adjust
 
 % Define number of folds for outer and inner cross-validation
 nOuterFolds = 5;
@@ -83,8 +88,25 @@ for i = 1:nOuterFolds
     probs = glmval([FitInfo.Intercept; B], XTest, 'logit');
     predictions = probs > 0.5;
     accuracy(i) = mean(predictions == YTest);
+    % Compute AUC
+    [~,~,~,aucScores(i)] = perfcurve(YTest, probs, 1);
 end
 
+% Bootstrap confidence intervals (95%)
+alphaLevel = 0.05;
+nBoot = 1000;
+bootAcc = bootstrp(nBoot, @mean, accuracy);
+bootAUC = bootstrp(nBoot, @mean, aucScores);
+
+accCI = prctile(bootAcc, [100*alphaLevel/2, 100*(1-alphaLevel/2)]);
+aucCI = prctile(bootAUC, [100*alphaLevel/2, 100*(1-alphaLevel/2)]);
+
+accMean = mean(accuracy);
+aucMean = mean(aucScores);
+
 % Display results
-fprintf('Mean accuracy across outer folds: %.2f%%\n', mean(accuracy) * 100);
-fprintf('Standard deviation of accuracy: %.2f%%\n', std(accuracy) * 100);
+fprintf('Mean accuracy: %.2f%%\n', accMean * 100);
+fprintf('95%% CI for accuracy (bootstrap): [%.2f%%, %.2f%%]\n', accCI(1) * 100, accCI(2) * 100);
+
+fprintf('Mean AUC: %.3f\n', aucMean);
+fprintf('95%% CI for AUC (bootstrap): [%.3f, %.3f]\n', aucCI(1), aucCI(2));
