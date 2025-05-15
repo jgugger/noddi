@@ -1,1 +1,1 @@
-MATLAB code for classification with elastic net regression and nested cross-validation 
+MATLAB code for "Evaluation of Limbic Microstructural Abnormalities in Temporal Lobe Epilepsy: A NODDI Study"
